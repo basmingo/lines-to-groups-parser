@@ -27,12 +27,12 @@ public class GroupsTest {
             groups.add(line);
         }
 
-        assertEquals(5, groups.getCount());
+        assertEquals(3, groups.getCount());
     }
 
     @Test
     public void parseStringTest() {
-        assertTrue(groups.getInteger("\"100\"").isPresent());
-        assertTrue(groups.getInteger("\"\"").isEmpty());
+        assertTrue(groups.getLong("\"100\"").isPresent());
+        assertTrue(groups.getLong("\"\"").isEmpty());
     }
 }

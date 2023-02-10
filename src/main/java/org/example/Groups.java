@@ -3,65 +3,96 @@ package org.example;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 
 public class Groups {
-    private final List<Map<Integer, Integer>> columnMap;
-    private final List<SortedSet<List<Integer>>> groupList;
+    private List<Map<Long, Integer>> numbersToIndexMap;
+    private final List<List<Set<Long>>> indexToNumbersMap;
     private static final String REGEXP_NUMBERS_FILTER = "\"\\d*\"";
     private final Pattern pattern;
-    private Integer groupSize;
+    private Integer lastGroupIndex;
 
     public Groups() {
-        columnMap = new ArrayList<>();
-        columnMap.add(new HashMap<>());
-        groupList = new ArrayList<>();
-        groupList.add(new TreeSet<>(Comparator.comparingInt(List::size)));
-
+        numbersToIndexMap = new ArrayList<>();
+        indexToNumbersMap = new ArrayList<>();
         pattern = Pattern.compile(REGEXP_NUMBERS_FILTER);
-        groupSize = 0;
+
+        numbersToIndexMap.add(new HashMap<>());
+        indexToNumbersMap.add(new ArrayList<>());
+        lastGroupIndex = 0;
     }
 
     public void add(String line) {
         Matcher matcher = pattern.matcher(line);
-        boolean isMatching = false;
-        List<Integer> n = new ArrayList<>();
+        List<Long> n = new ArrayList<>();
 
         int columnPointer = 0;
+        List<Integer> overlappingGroupIndexes = new ArrayList<>();
         while (matcher.find()) {
-            getInteger(matcher.group());
-            Integer i = getInteger(matcher.group()).orElse(null);
-            n.add(i);
-            if (columnMap.size() > columnPointer && columnMap.get(columnPointer).containsKey(i)) {
-                isMatching = true;
-            }
-            columnPointer++;
-        }
-
-        if (!isMatching) {
-            groupSize++;
-        }
-
-        for (int i = 0; i < n.size(); i++) {
-            if (columnMap.size() > i) {
-                columnMap.get(i).putIfAbsent(n.get(i), groupSize);
-            } else {
-                columnMap.add(new HashMap<>());
-                columnMap.get(i).putIfAbsent(n.get(i), groupSize);
+            Long currentNumber = getLong(matcher.group()).orElse(null);
+            n.add(currentNumber);
+            if (numbersToIndexMap.get(columnPointer).containsKey(currentNumber)) {
+                Integer currentNumberIndex = numbersToIndexMap.get(columnPointer).get(currentNumber);
+                overlappingGroupIndexes.add(currentNumberIndex);
             }
         }
-        System.out.println(columnMap);
+
+        if (overlappingGroupIndexes.size() > 1) {
+            rearange(overlappingGroupIndexes);
+        } else if (overlappingGroupIndexes.isEmpty()) {
+            lastGroupIndex++;
+            indexToNumbersMap.add(new ArrayList<>());
+        }
+
+        IntStream.range(0, n.size())
+//                .parallel()
+                .forEach(i -> {
+                    if (numbersToIndexMap.size() <= i) {
+                        numbersToIndexMap.add(new HashMap<>());
+                    }
+
+                    if (indexToNumbersMap.get(lastGroupIndex).size() <= i) {
+                        indexToNumbersMap.get(lastGroupIndex).add(new HashSet<>());
+                    }
+
+                    indexToNumbersMap.get(lastGroupIndex).get(i).add(n.get(i));
+                    numbersToIndexMap.get(i).putIfAbsent(n.get(i), lastGroupIndex);
+                });
     }
 
-    public Optional<Integer> getInteger(String inputString) {
+    private void rearange(List<Integer> indexesToRearange) {
+        List<Map<Long, Integer>> newMap = new ArrayList<>();
+
+        for (int i = 1; i < indexesToRearange.size(); i++) {
+            List<Set<Long>> sets = indexToNumbersMap.get(indexesToRearange.get(i));
+            indexToNumbersMap.get(indexesToRearange.get(0)).addAll(sets);
+            indexToNumbersMap.remove(indexesToRearange.get(i));
+        }
+
+        for (int i = 1; i < indexToNumbersMap.size(); i++) {
+            for (int j = 0; j < indexToNumbersMap.get(i).size(); j++) {
+                if (newMap.size() <= j) {
+                    newMap.add(new HashMap<>());
+                }
+                for (Long k : indexToNumbersMap.get(i).get(j)) {
+                    newMap.get(j).put(k, i);
+                }
+            }
+        }
+
+        numbersToIndexMap = newMap;
+    }
+
+    public Optional<Long> getLong(String inputString) {
         if (inputString.equals("\"\"")) {
             return Optional.empty();
         }
-        return Optional.of(Integer
-                .parseInt(inputString
+        return Optional.of(Long
+                .parseLong(inputString
                         .replaceAll("\"", "")));
     }
 
     public int getCount() {
-        return groupSize;
+        return indexToNumbersMap.size();
     }
 }
