@@ -1,9 +1,8 @@
 package org.example;
 
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
+import java.util.Arrays;
+import java.util.Objects;
 
 public class Main {
 
@@ -11,14 +10,13 @@ public class Main {
         Validator validator = new Validator();
         Groups groups = new Groups();
 
-        BufferedReader bufferedReader = new BufferedReader(new FileReader("src/main/resources/lng-4.txt"));
+        InputStream in = (Main.class.getClassLoader().getResourceAsStream("lng-4.txt"));
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in));
         String line;
         while((line = bufferedReader.readLine()) != null) {
-//            System.out.println(line);
             if (validator.isValid(line)) {
                 groups.add(line);
             }
         }
-
     }
 }

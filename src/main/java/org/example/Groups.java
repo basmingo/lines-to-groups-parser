@@ -1,25 +1,26 @@
 package org.example;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class Groups {
-    private List<Map<Long, Integer>> numbersToIndexMap;
-    private final List<List<Set<Long>>> indexToNumbersMap;
     private static final String REGEXP_NUMBERS_FILTER = "\"\\d*\"";
     private final Pattern pattern;
-    private Integer lastGroupIndex;
+    private AtomicInteger lastGroupIndex;
+    private final List<Map<Long, AtomicInteger>> numbersToIndexMap;
+    private final Map<Integer, Set<AtomicInteger>> groupNeighbors;
 
     public Groups() {
         numbersToIndexMap = new ArrayList<>();
-        indexToNumbersMap = new ArrayList<>();
         pattern = Pattern.compile(REGEXP_NUMBERS_FILTER);
+        groupNeighbors = new HashMap<>();
 
         numbersToIndexMap.add(new HashMap<>());
-        indexToNumbersMap.add(new ArrayList<>());
-        lastGroupIndex = 0;
+        lastGroupIndex = new AtomicInteger(0);
     }
 
     public void add(String line) {
@@ -27,72 +28,79 @@ public class Groups {
         List<Long> n = new ArrayList<>();
 
         int columnPointer = 0;
-        List<Integer> overlappingGroupIndexes = new ArrayList<>();
-        while (matcher.find()) {
-            Long currentNumber = getLong(matcher.group()).orElse(null);
-            n.add(currentNumber);
-            if (numbersToIndexMap.get(columnPointer).containsKey(currentNumber)) {
-                Integer currentNumberIndex = numbersToIndexMap.get(columnPointer).get(currentNumber);
-                overlappingGroupIndexes.add(currentNumberIndex);
-            }
-        }
+        LinkedHashSet<AtomicInteger> overlappingGroupIndexes = new LinkedHashSet<>();
 
+        while (matcher.find()) {
+            Long currentNumber = getLong(matcher.group());
+            n.add(currentNumber);
+            if (numbersToIndexMap.size() > columnPointer && numbersToIndexMap.get(columnPointer).containsKey(currentNumber) && currentNumber != null) {
+                AtomicInteger currentNumberIndex = numbersToIndexMap.get(columnPointer).get(currentNumber);
+                overlappingGroupIndexes.add(currentNumberIndex);
+
+                if (groupNeighbors.get(currentNumberIndex.get()) != null) {
+                    overlappingGroupIndexes.addAll(groupNeighbors.get(currentNumberIndex.get()));
+                }
+            }
+            columnPointer++;
+        }
+        AtomicInteger index;
         if (overlappingGroupIndexes.size() > 1) {
             rearange(overlappingGroupIndexes);
+            index = overlappingGroupIndexes.stream().findFirst().get();
         } else if (overlappingGroupIndexes.isEmpty()) {
-            lastGroupIndex++;
-            indexToNumbersMap.add(new ArrayList<>());
+            lastGroupIndex = new AtomicInteger(lastGroupIndex.get());
+            lastGroupIndex.incrementAndGet();
+            index = lastGroupIndex;
+        } else {
+            index = overlappingGroupIndexes.stream().findFirst().get();
         }
 
         IntStream.range(0, n.size())
-//                .parallel()
                 .forEach(i -> {
                     if (numbersToIndexMap.size() <= i) {
                         numbersToIndexMap.add(new HashMap<>());
                     }
-
-                    if (indexToNumbersMap.get(lastGroupIndex).size() <= i) {
-                        indexToNumbersMap.get(lastGroupIndex).add(new HashSet<>());
-                    }
-
-                    indexToNumbersMap.get(lastGroupIndex).get(i).add(n.get(i));
-                    numbersToIndexMap.get(i).putIfAbsent(n.get(i), lastGroupIndex);
+                    numbersToIndexMap.get(i).putIfAbsent(n.get(i), index);
                 });
     }
 
-    private void rearange(List<Integer> indexesToRearange) {
-        List<Map<Long, Integer>> newMap = new ArrayList<>();
+    private void rearange(LinkedHashSet<AtomicInteger> indexesToRearrange) {
+        int firstElement = indexesToRearrange
+                .stream()
+                .findFirst()
+                .get()
+                .get();
 
-        for (int i = 1; i < indexesToRearange.size(); i++) {
-            List<Set<Long>> sets = indexToNumbersMap.get(indexesToRearange.get(i));
-            indexToNumbersMap.get(indexesToRearange.get(0)).addAll(sets);
-            indexToNumbersMap.remove(indexesToRearange.get(i));
-        }
+        Set<AtomicInteger> mod = indexesToRearrange
+                .stream()
+                .skip(1)
+                .collect(Collectors.toSet());
 
-        for (int i = 1; i < indexToNumbersMap.size(); i++) {
-            for (int j = 0; j < indexToNumbersMap.get(i).size(); j++) {
-                if (newMap.size() <= j) {
-                    newMap.add(new HashMap<>());
-                }
-                for (Long k : indexToNumbersMap.get(i).get(j)) {
-                    newMap.get(j).put(k, i);
-                }
-            }
-        }
-
-        numbersToIndexMap = newMap;
+        mod.forEach(x -> x.set(firstElement));
+        groupNeighbors.put(firstElement, mod);
     }
 
-    public Optional<Long> getLong(String inputString) {
+    public Long getLong(String inputString) {
         if (inputString.equals("\"\"")) {
-            return Optional.empty();
+            return null;
         }
-        return Optional.of(Long
-                .parseLong(inputString
-                        .replaceAll("\"", "")));
+        return Long.parseLong(inputString.replaceAll("\"", ""));
     }
 
     public int getCount() {
-        return indexToNumbersMap.size();
+        AtomicInteger count = new AtomicInteger();
+        Set<Integer> i2 = new HashSet<>();
+        for (Map<Long, AtomicInteger> i : numbersToIndexMap) {
+            i.forEach((x, y) -> {
+                if (!i2.contains(y.get())) {
+                    i2.add(y.get());
+                    count.getAndIncrement();
+                }
+            });
+        }
+
+        System.out.println(numbersToIndexMap);
+        System.out.println(i2);
+        return count.get();
     }
 }

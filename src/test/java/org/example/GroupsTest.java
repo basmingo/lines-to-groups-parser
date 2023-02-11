@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class GroupsTest {
     private final BufferedReader reader;
 
-    private final Groups groups;
+    private Groups groups;
 
     public GroupsTest() throws FileNotFoundException {
         reader = new BufferedReader(new FileReader("src/test/resources/baseFunctionalTest.txt"));
@@ -22,6 +22,7 @@ public class GroupsTest {
 
     @Test
     public void basicParsingTest() throws IOException {
+        groups = new Groups();
         String line;
         while((line = reader.readLine()) != null) {
             groups.add(line);
@@ -32,7 +33,7 @@ public class GroupsTest {
 
     @Test
     public void parseStringTest() {
-        assertTrue(groups.getLong("\"100\"").isPresent());
-        assertTrue(groups.getLong("\"\"").isEmpty());
+        assertTrue(groups.getLong("\"100\"") != null);
+        assertTrue(groups.getLong("\"\"") == null);
     }
 }
