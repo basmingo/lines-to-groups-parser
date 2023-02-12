@@ -1,7 +1,8 @@
 package org.example;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -10,129 +11,110 @@ import java.util.stream.IntStream;
 public class Groups {
     private static final String REGEXP_NUMBERS_FILTER = "\"\\d*\"";
     private final Pattern pattern;
-    private AtomicInteger lastGroupIndex;
-    private final List<Map<Long, AtomicInteger>> numbersToIndexMap;
-    private final Map<Integer, List<AtomicInteger>> groupNeighbors;
+    private int[] lastGroupIndex;
+    private final List<Map<Long, int[]>> numbersToIndexMap;
+    private final Map<Integer, List<int[]>> groupNeighbors;
+    private final Map<int[], List<List<Long>>> groups;
+    private long uniqueNumber;
+    List<Long> tempList;
+    List<int[]> overlappingGroupIndexes;
 
     public Groups() {
-        numbersToIndexMap = new ArrayList<>();
         pattern = Pattern.compile(REGEXP_NUMBERS_FILTER);
+        uniqueNumber = -1;
+        numbersToIndexMap = new ArrayList<>();
         groupNeighbors = new HashMap<>();
-
-        numbersToIndexMap.add(new HashMap<>());
-        lastGroupIndex = new AtomicInteger(0);
+        groups = new HashMap<>();
+        numbersToIndexMap.add(new ConcurrentHashMap<>());
+        lastGroupIndex = new int[]{0};
+        tempList = new CopyOnWriteArrayList<>();
     }
 
     public void add(String line) {
-        Matcher matcher = pattern.matcher(line);
-        List<Long> n = new ArrayList<>();
-
         int columnPointer = 0;
-        List<AtomicInteger> overlappingGroupIndexes = new ArrayList<>();
+        Matcher matcher = pattern.matcher(line);
+        overlappingGroupIndexes = new ArrayList<>();
+        tempList.clear();
 
         while (matcher.find()) {
-            Long currentNumber = getLong(matcher.group());
-            n.add(currentNumber);
-            if (numbersToIndexMap.size() > columnPointer && numbersToIndexMap.get(columnPointer).containsKey(currentNumber) && currentNumber != null) {
-                AtomicInteger currentNumberIndex = numbersToIndexMap.get(columnPointer).get(currentNumber);
-                //Добавление пересечений
+            Long currentNumber = Validator.getLong(matcher.group());
+            tempList.add(Objects.requireNonNullElseGet(currentNumber, () -> --uniqueNumber));
+
+            if (numbersToIndexMap.size() > columnPointer
+                    && currentNumber != null
+                    && numbersToIndexMap.get(columnPointer).containsKey(currentNumber)) {
+
+                int[] currentNumberIndex = numbersToIndexMap.get(columnPointer).get(currentNumber);
                 overlappingGroupIndexes.add(currentNumberIndex);
 
-
+                if (groupNeighbors.get(currentNumberIndex[0]) != null) {
+                    overlappingGroupIndexes.addAll(groupNeighbors.get(currentNumberIndex[0]));
+                }
             }
             columnPointer++;
         }
 
-        AtomicInteger index;
+        int[] index;
         if (overlappingGroupIndexes.isEmpty()) {
-            lastGroupIndex = new AtomicInteger(lastGroupIndex.get());
-            lastGroupIndex.incrementAndGet();
+            lastGroupIndex = new int[]{lastGroupIndex[0]};
+            lastGroupIndex[0]++;
             index = lastGroupIndex;
-//            System.out.println("growing " + n + " index is " + index);
 
         } else if (overlappingGroupIndexes.size() > 1) {
-            List<AtomicInteger> sss = new ArrayList<>();
-            for (var s : overlappingGroupIndexes) {
-                for (var z : numbersToIndexMap) {
-//                    System.out.println(z);
-//                    System.out.println(s);
-                    if (z.containsValue(s)) {
-                        for(var ass : z.values()) {
-                            if (ass.get() == s.get()) {
-                                sss.add(ass);
-                            }
-                        }
-                    }
-                }
-            }
-//            System.out.println(sss);
-            overlappingGroupIndexes.addAll(sss);
-//            System.out.println("adding " + n);
-            rearange(overlappingGroupIndexes);
-            index = overlappingGroupIndexes.stream().findFirst().get();
+            List<int[]> id = new ArrayList<>();
+            overlappingGroupIndexes.forEach(entry ->
+                    numbersToIndexMap.parallelStream()
+                            .filter(x -> x.containsValue(entry))
+                            .flatMap(y -> y.values().parallelStream())
+                            .filter(z -> z[0] == entry[0])
+                            .forEach(id::add)
+            );
 
+            overlappingGroupIndexes.addAll(id);
+            rearrange(overlappingGroupIndexes);
+            index = overlappingGroupIndexes.stream().findFirst().orElseThrow();
         } else {
-            index = overlappingGroupIndexes.stream().findFirst().get();
-//            System.out.println("connecting " + n + " index is " + index);
+            index = overlappingGroupIndexes.stream().findFirst().orElseThrow();
         }
 
-        for (int i = 0; i < n.size(); i++) {
-            if (numbersToIndexMap.size() <= i) {
-                numbersToIndexMap.add(new HashMap<>());
-            }
-            numbersToIndexMap.get(i).putIfAbsent(n.get(i), index);
-        }
+        IntStream.range(0, tempList.size())
+//                .parallel()
+                .forEach(x -> {
+                    if (numbersToIndexMap.size() <= x) {
+                        numbersToIndexMap.add(new HashMap<>());
+                    }
+                    numbersToIndexMap.get(x).putIfAbsent(tempList.get(x), index);
+                });
 
-//        System.out.println("\n");
-//        System.out.println(numbersToIndexMap);
+        List<Long> n2 = tempList.stream()
+                .map(i -> i < 0 ? null : i)
+                .collect(Collectors.toList());
+
+        groups.putIfAbsent(index, new ArrayList<>());
+        groups.get(index).add(n2);
     }
 
-    private void rearange(List<AtomicInteger> indexesToRearrange) {
-//        System.out.println("start rearrange");
-//        System.out.println("adding indexes " + indexesToRearrange);
-        List<AtomicInteger> friends = new ArrayList<>();
+    private void rearrange(List<int[]> indexesToRearrange) {
+        int key = indexesToRearrange.get(0)[0];
+        IntStream.range(1, indexesToRearrange.size())
+                .forEach(i -> indexesToRearrange.get(i)[0] = key);
 
-        //Добавление соседей
-        for (var i : indexesToRearrange) {
-            if (groupNeighbors.get(i.get()) != null) {
-//                System.out.println("found friends for " + i.get());
-                friends.addAll(groupNeighbors.get(i.get()));
-            }
-        }
-//        System.out.println("potential friends ");
-//        System.out.println(friends);
-        indexesToRearrange.addAll(friends);
-//        System.out.println("became after adding friends " + indexesToRearrange);
-
-
-        for (int i = 1; i < indexesToRearrange.size(); i++) {
-            indexesToRearrange.get(i).set(indexesToRearrange.get(0).get());
-        }
-//        System.out.println(indexesToRearrange);
-        groupNeighbors.put(indexesToRearrange.get(0).get(), indexesToRearrange.subList(1, indexesToRearrange.size()));
+        List<int[]> value = indexesToRearrange.subList(1, indexesToRearrange.size());
+        groupNeighbors.put(key, value);
     }
 
-    public Long getLong(String inputString) {
-        if (inputString.equals("\"\"")) {
-            return null;
-        }
-        return Long.parseLong(inputString.replaceAll("\"", ""));
-    }
+    public long getCount() {
+        Map<Integer, List<List<Long>>> result = new HashMap<>();
+        groups.forEach((key, value1) -> value1
+                .forEach(value -> result
+                        .computeIfAbsent(key[0], x -> new ArrayList<>()).add(value)));
 
-    public int getCount() {
-        AtomicInteger count = new AtomicInteger();
-        Set<Integer> i2 = new HashSet<>();
-        for (Map<Long, AtomicInteger> i : numbersToIndexMap) {
-            i.forEach((x, y) -> {
-                if (!i2.contains(y.get())) {
-                    i2.add(y.get());
-                    count.getAndIncrement();
-                }
-            });
-        }
-
-//        System.out.println(numbersToIndexMap);
-//        System.out.println(i2);
-        return count.get();
+        return result.entrySet()
+                .parallelStream()
+                .filter(x -> x.getValue()
+                        .parallelStream()
+                        .filter(Objects::nonNull)
+                        .count() > 1)
+                .count();
     }
 }

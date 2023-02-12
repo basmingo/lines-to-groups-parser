@@ -7,8 +7,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class GroupsTest {
     private final BufferedReader reader;
@@ -33,7 +32,7 @@ public class GroupsTest {
 
     @Test
     public void parseStringTest() {
-        assertTrue(groups.getLong("\"100\"") != null);
-        assertTrue(groups.getLong("\"\"") == null);
+        assertNotNull(Validator.getLong("\"100\""));
+        assertNull(Validator.getLong("\"\""));
     }
 }
