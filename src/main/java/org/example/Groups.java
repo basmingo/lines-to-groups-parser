@@ -12,7 +12,7 @@ public class Groups {
     private final Pattern pattern;
     private AtomicInteger lastGroupIndex;
     private final List<Map<Long, AtomicInteger>> numbersToIndexMap;
-    private final Map<Integer, Set<AtomicInteger>> groupNeighbors;
+    private final Map<Integer, List<AtomicInteger>> groupNeighbors;
 
     public Groups() {
         numbersToIndexMap = new ArrayList<>();
@@ -28,56 +28,88 @@ public class Groups {
         List<Long> n = new ArrayList<>();
 
         int columnPointer = 0;
-        LinkedHashSet<AtomicInteger> overlappingGroupIndexes = new LinkedHashSet<>();
+        List<AtomicInteger> overlappingGroupIndexes = new ArrayList<>();
 
         while (matcher.find()) {
             Long currentNumber = getLong(matcher.group());
             n.add(currentNumber);
             if (numbersToIndexMap.size() > columnPointer && numbersToIndexMap.get(columnPointer).containsKey(currentNumber) && currentNumber != null) {
                 AtomicInteger currentNumberIndex = numbersToIndexMap.get(columnPointer).get(currentNumber);
+                //Добавление пересечений
                 overlappingGroupIndexes.add(currentNumberIndex);
 
-                if (groupNeighbors.get(currentNumberIndex.get()) != null) {
-                    overlappingGroupIndexes.addAll(groupNeighbors.get(currentNumberIndex.get()));
-                }
+
             }
             columnPointer++;
         }
+
         AtomicInteger index;
-        if (overlappingGroupIndexes.size() > 1) {
-            rearange(overlappingGroupIndexes);
-            index = overlappingGroupIndexes.stream().findFirst().get();
-        } else if (overlappingGroupIndexes.isEmpty()) {
+        if (overlappingGroupIndexes.isEmpty()) {
             lastGroupIndex = new AtomicInteger(lastGroupIndex.get());
             lastGroupIndex.incrementAndGet();
             index = lastGroupIndex;
+//            System.out.println("growing " + n + " index is " + index);
+
+        } else if (overlappingGroupIndexes.size() > 1) {
+            List<AtomicInteger> sss = new ArrayList<>();
+            for (var s : overlappingGroupIndexes) {
+                for (var z : numbersToIndexMap) {
+//                    System.out.println(z);
+//                    System.out.println(s);
+                    if (z.containsValue(s)) {
+                        for(var ass : z.values()) {
+                            if (ass.get() == s.get()) {
+                                sss.add(ass);
+                            }
+                        }
+                    }
+                }
+            }
+//            System.out.println(sss);
+            overlappingGroupIndexes.addAll(sss);
+//            System.out.println("adding " + n);
+            rearange(overlappingGroupIndexes);
+            index = overlappingGroupIndexes.stream().findFirst().get();
+
         } else {
             index = overlappingGroupIndexes.stream().findFirst().get();
+//            System.out.println("connecting " + n + " index is " + index);
         }
 
-        IntStream.range(0, n.size())
-                .forEach(i -> {
-                    if (numbersToIndexMap.size() <= i) {
-                        numbersToIndexMap.add(new HashMap<>());
-                    }
-                    numbersToIndexMap.get(i).putIfAbsent(n.get(i), index);
-                });
+        for (int i = 0; i < n.size(); i++) {
+            if (numbersToIndexMap.size() <= i) {
+                numbersToIndexMap.add(new HashMap<>());
+            }
+            numbersToIndexMap.get(i).putIfAbsent(n.get(i), index);
+        }
+
+//        System.out.println("\n");
+//        System.out.println(numbersToIndexMap);
     }
 
-    private void rearange(LinkedHashSet<AtomicInteger> indexesToRearrange) {
-        int firstElement = indexesToRearrange
-                .stream()
-                .findFirst()
-                .get()
-                .get();
+    private void rearange(List<AtomicInteger> indexesToRearrange) {
+//        System.out.println("start rearrange");
+//        System.out.println("adding indexes " + indexesToRearrange);
+        List<AtomicInteger> friends = new ArrayList<>();
 
-        Set<AtomicInteger> mod = indexesToRearrange
-                .stream()
-                .skip(1)
-                .collect(Collectors.toSet());
+        //Добавление соседей
+        for (var i : indexesToRearrange) {
+            if (groupNeighbors.get(i.get()) != null) {
+//                System.out.println("found friends for " + i.get());
+                friends.addAll(groupNeighbors.get(i.get()));
+            }
+        }
+//        System.out.println("potential friends ");
+//        System.out.println(friends);
+        indexesToRearrange.addAll(friends);
+//        System.out.println("became after adding friends " + indexesToRearrange);
 
-        mod.forEach(x -> x.set(firstElement));
-        groupNeighbors.put(firstElement, mod);
+
+        for (int i = 1; i < indexesToRearrange.size(); i++) {
+            indexesToRearrange.get(i).set(indexesToRearrange.get(0).get());
+        }
+//        System.out.println(indexesToRearrange);
+        groupNeighbors.put(indexesToRearrange.get(0).get(), indexesToRearrange.subList(1, indexesToRearrange.size()));
     }
 
     public Long getLong(String inputString) {
@@ -99,8 +131,8 @@ public class Groups {
             });
         }
 
-        System.out.println(numbersToIndexMap);
-        System.out.println(i2);
+//        System.out.println(numbersToIndexMap);
+//        System.out.println(i2);
         return count.get();
     }
 }

@@ -18,5 +18,6 @@ public class Main {
                 groups.add(line);
             }
         }
+        System.out.println(groups.getCount());
     }
 }
