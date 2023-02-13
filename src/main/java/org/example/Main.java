@@ -11,10 +11,10 @@ public class Main {
         Groups groups = new Groups();
 
         InputStream in = (Main.class.getClassLoader().getResourceAsStream("lng-4.txt"));
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in));
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in), 8192);
         String line;
         while((line = bufferedReader.readLine()) != null) {
-            if (validator.isValid(line)) {
+            if (Validator.isValid(line)) {
                 groups.add(line);
             }
         }
