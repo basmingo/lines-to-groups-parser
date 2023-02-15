@@ -102,7 +102,7 @@ public class Groups {
         groupNeighbors.put(key, value);
     }
 
-    public long getCount() {
+    public void getCountAndWriteToFile() {
         Map<Integer, Set<List<Long>>> preResult = new HashMap<>();
         groups.forEach((key, value) -> value
                 .forEach(value1 -> preResult
@@ -123,17 +123,6 @@ public class Groups {
                         .count() > 1)
                 .count();
 
-        System.out.println("groups with longer than one element - " + resultSize);
-        for (var i : entries) {
-            StringBuilder sb = new StringBuilder();
-            System.out.print("Group name - ");
-            System.out.println(i.getKey());
-            for (var j : i.getValue()) {
-                sb.append(j).append("\n");
-            }
-            System.out.println(sb);
-        }
-
-        return resultSize;
+        new ResultHandler().printToFile(entries, resultSize);
     }
 }

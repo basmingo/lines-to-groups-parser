@@ -1,16 +1,12 @@
 package org.example;
 
 import java.io.*;
-import java.util.Arrays;
-import java.util.Objects;
 
 public class Main {
-
     public static void main(String[] args) throws IOException {
-        Validator validator = new Validator();
+        double startTime = System.currentTimeMillis();
         Groups groups = new Groups();
-
-        InputStream in = (Main.class.getClassLoader().getResourceAsStream("lng-4.txt"));
+        InputStream in = (new FileInputStream(args[0]));
         BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(in), 8192);
         String line;
         while((line = bufferedReader.readLine()) != null) {
@@ -18,6 +14,10 @@ public class Main {
                 groups.add(line);
             }
         }
-        System.out.println(groups.getCount());
+
+        groups.getCountAndWriteToFile();
+        double endTime = System.currentTimeMillis();
+        double resultTime = (endTime - startTime) / 1000;
+        System.out.println("General time of execution - " + resultTime + " seconds");
     }
 }

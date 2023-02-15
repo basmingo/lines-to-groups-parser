@@ -27,7 +27,7 @@ public class GroupsTest {
             groups.add(line);
         }
 
-        assertEquals(3, groups.getCount());
+        assertEquals(3, groups.getCountAndWriteToFile());
     }
 
     @Test
