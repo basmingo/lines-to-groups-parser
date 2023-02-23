@@ -1,16 +1,29 @@
 package org.example;
 
 public class Validator {
-    private final static String REGEXP_VALIDATION = "^(\"\\d*\";)*\"\\d*\"$";
+    public static Long[] validateAndGetLongArray(String line) {
+        String[] lineArray = line.split(";");
+        Long[] result = new Long[lineArray.length];
 
-    public static boolean isValid(String line) {
-        return line.matches(REGEXP_VALIDATION);
+        for (int i = 0; i < lineArray.length; i++) {
+            String element = lineArray[i];
+            if (!element.startsWith("\"")
+                    || !element.endsWith("\"")
+                    || element.indexOf('\"', 1) != element.length() - 1) {
+
+                return new Long[0];
+            }
+            result[i] = (getLong(element));
+        }
+        return result;
     }
 
-    public static Long getLong(String inputString) {
-        if (inputString.equals("\"\"")) {
+    private static Long getLong(String element) {
+        element = element.replace("\"", "");
+        if (element.isEmpty()) {
             return null;
         }
-        return Long.parseLong(inputString.replaceAll("\"", ""));
+        double parsedElement = Double.parseDouble(element) * 100;
+        return (long) parsedElement;
     }
 }
