@@ -1,7 +1,6 @@
 package org.example;
 
 import org.junit.jupiter.api.Test;
-
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -9,30 +8,22 @@ import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class GroupsTest {
+class LineHandlerTest {
     private final BufferedReader reader;
+    private LineHandler lineHandler;
 
-    private Groups groups;
-
-    public GroupsTest() throws FileNotFoundException {
+    public LineHandlerTest() throws FileNotFoundException {
         reader = new BufferedReader(new FileReader("src/test/resources/baseFunctionalTest.txt"));
-        this.groups = new Groups();
+        this.lineHandler = new LineHandler();
     }
 
     @Test
-    public void basicParsingTest() throws IOException {
-        groups = new Groups();
+    void basicParsingTest() throws IOException {
+        lineHandler = new LineHandler();
         String line;
         while((line = reader.readLine()) != null) {
-            groups.add(line);
+            lineHandler.add(line);
         }
-
-        assertEquals(3, groups.getCountAndWriteToFile());
-    }
-
-    @Test
-    public void parseStringTest() {
-        assertNotNull(Validator.getLong("\"100\""));
-        assertNull(Validator.getLong("\"\""));
+        assertEquals(3, lineHandler.getCountAndWriteToFile());
     }
 }
